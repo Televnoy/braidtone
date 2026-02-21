@@ -19,42 +19,7 @@
     <link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-    <script>
-        // Web Manifest with PNG icons
-        const manifest = {
-            "name": "Braid Tone Laboratory",
-            "short_name": "Braid Tone",
-            "start_url": "./index.html",
-            "display": "standalone",
-            "background_color": "#ffffff",
-            "theme_color": "#ffffff",
-            "description": "Лаборатория замеса канекалона",
-            "icons": [
-                {
-                    "src": "icon-192.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
-                    "purpose": "any"
-                },
-                {
-                    "src": "icon-512.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "any"
-                },
-                {
-                    "src": "icon-192-maskable.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
-                    "purpose": "maskable"
-                }
-            ]
-        };
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
-    </script>
+    <link rel="manifest" href="manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -62,14 +27,17 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
    
-    <script // Регистрация Service Worker
-if ('serviceWorker' in navigator) {
+    <script>
+  // Регистрация Service Worker
+  if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('SW registered'))
-            .catch(err => console.log('SW error', err));
+      // Используем относительный путь, который работает на GitHub Pages
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('SW зарегистрирован успешно:', reg.scope))
+        .catch(err => console.log('Ошибка регистрации SW:', err));
     });
-}
+  }
+</script>
 
 ### Итоговая структура папки проекта:
 * `index.html` — основной файл (код лаборатории).
