@@ -1,8 +1,7 @@
-const CACHE_NAME = 'braid-tone-v4';
+const CACHE_NAME = 'braid-tone-v1';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
+  '/braidtone/',
+  '/braidtone/index.html',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
   'https://unpkg.com/react@18/umd/react.production.min.js',
@@ -11,62 +10,43 @@ const ASSETS_TO_CACHE = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'
 ];
 
-// Добавляем иконки программно, чтобы не загромождать список
-const ICONS = [
-  './icon-180.png', './icon-152.png', './icon-16.png', 
-  './icon-192.png', './icon-192-maskable.png', './icon-512.png'
-];
-
-const ALL_ASSETS = [...ASSETS_TO_CACHE, ...ICONS];
-
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Кэширование всех ресурсов...');
-      // Используем Promise.allSettled чтобы 404 по одной иконке не ломал всё приложение
-      return Promise.allSettled(
-        ALL_ASSETS.map(url => 
-          fetch(url).then(response => {
-            if (response.ok) return cache.put(url, response);
-            throw new Error(`Failed to fetch ${url}`);
-          }).catch(err => console.warn('Ошибка кэширования ресурса:', url))
-        )
+      // Используем map, чтобы даже если один файл не загрузится, остальные попробовали
+      return Promise.all(
+        ASSETS_TO_CACHE.map(url => {
+          return fetch(url, { mode: 'no-cors' }).then(response => {
+            return cache.put(url, response);
+          }).catch(err => console.error('Ошибка кэширования:', url, err));
+        })
       );
     })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // Принудительная активация
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.map(key => key !== CACHE_NAME ? caches.delete(key) : null)
-    ))
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) return caches.delete(cache);
+        })
+      );
+    })
   );
   return self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Игнорируем не-GET запросы и расширения
-  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
-
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      // 1. Возвращаем из кэша, если есть
-      if (cached) return cached;
-
-      // 2. Если нет в кэше, идем в сеть
-      return fetch(event.request).then((response) => {
-        // Кэшируем на лету только валидные ответы
-        if (response && response.status === 200) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => {
-        // 3. Если сети нет и это запрос навигации (страница), возвращаем корень
+    caches.match(event.request).then((response) => {
+      // Возвращаем из кэша, если есть, иначе идем в сеть
+      return response || fetch(event.request).catch(() => {
+        // Если сети нет и в кэше пусто (например, для новой страницы)
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html') || caches.match('./');
+          return caches.match('/braidtone/index.html');
         }
       });
     })
