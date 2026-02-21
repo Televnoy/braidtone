@@ -1,4 +1,4 @@
-const CACHE_NAME = 'braid-tone-v2'; // Обновили версию
+const CACHE_NAME = 'braid-tone-v3'; // Обновили версию для принудительного обновления у пользователей
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -9,27 +9,30 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap',
-  // Добавьте сюда иконки, если они лежат в той же папке
   './icon-180.png',
-  './icon-152.png'
-'./icon-16.png'
-'./icon-192.png'
-'./icon-192-maskable.png'
-'./icon-512.png'
+  './icon-152.png',
+  './icon-16.png',
+  './icon-192.png',
+  './icon-192-maskable.png',
+  './icon-512.png'
 ];
 
-// Установка: кэшируем всё необходимое
+// Установка: кэшируем ресурсы по одному, чтобы битая ссылка не ломала всё приложение
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Кэширование ресурсов...');
-      return cache.addAll(ASSETS_TO_CACHE);
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => 
+          cache.add(url).catch(err => console.warn(`Не удалось загрузить в кэш: ${url}`, err))
+        )
+      );
     })
   );
   self.skipWaiting();
 });
 
-// Активация: удаляем старый кэш
+// Активация: очистка старых версий кэша
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -46,25 +49,28 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
-// Обработка запросов: Сначала кэш, потом сеть
+// Стратегия: Сначала кэш, если нет — сеть
 self.addEventListener('fetch', (event) => {
+  // Пропускаем запросы к расширениям браузера и не-GET запросы
+  if (!event.request.url.startsWith('http') || event.request.method !== 'GET') return;
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
+
       return fetch(event.request).then((response) => {
-        // Проверяем, что ответ валидный (не opaque) перед кэшированием новых ресурсов на лету
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+        // Кэшируем новые успешные запросы (например, шрифты или картинки, не вошедшие в список)
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return response;
       }).catch(() => {
-        // Если сети нет и в кэше нет — можно вернуть кастомную страницу оффлайна
+        // Ошибка сети — здесь можно возвращать заглушку для картинок
       });
     })
   );
