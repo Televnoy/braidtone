@@ -1,0 +1,21 @@
+{
+  "short_name": "Braid Tone",
+  "name": "Braid Tone Laboratory",
+  "icons": [
+    {
+      "src": "icon-180.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "icon-152.png",
+      "type": "image/png",
+      "sizes": "152x152"
+    }
+  ],
+  "start_url": "/Braid-Tone/index.html",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "scope": "/Braid-Tone/",
+  "theme_color": "#ffffff"
+}
