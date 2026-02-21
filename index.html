@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Braid Tone Laboratory</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Braid Tone">
+    <meta name="theme-color" content="#ffffff">
+
+    <!-- PNG Icons for iOS and Browsers -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+
+    <script>
+        // Web Manifest with PNG icons
+        const manifest = {
+            "name": "Braid Tone Laboratory",
+            "short_name": "Braid Tone",
+            "start_url": "./index.html",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#ffffff",
+            "description": "Лаборатория замеса канекалона",
+            "icons": [
+                {
+                    "src": "icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any"
+                },
+                {
+                    "src": "icon-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any"
+                },
+                {
+                    "src": "icon-192-maskable.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "maskable"
+                }
+            ]
+        };
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   
+    <script // Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW error', err));
+    });
+}
+
+### Итоговая структура папки проекта:
+* `index.html` — основной файл (код лаборатории).
+* `sw.js` — код выше.
+* `icon-16.png`, `icon-32.png`, `icon-180.png`, `icon-192.png`, `icon-512.png`, `icon-192-maskable.png` 
+ </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes rotate-reset { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
+        .animate-reset:active { animation: rotate-reset 0.3s ease-out; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
+        input[type="range"] { -webkit-appearance: none; height: 8px; border-radius: 5px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #000; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body class="bg-white">
+    <div id="root"></div>
+
+<script type="module" src="license_guard.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Icons components
+        const Plus = ({ size = 24, className }) => <i data-lucide="plus" style={{width: size, height: size}} className={className}></i>;
+        const Minus = ({ size = 24, className }) => <i data-lucide="minus" style={{width: size, height: size}} className={className}></i>;
+        const Trash2 = ({ size = 24, className }) => <i data-lucide="trash-2" style={{width: size, height: size}} className={className}></i>;
+        const Save = ({ size = 24, className }) => <i data-lucide="save" style={{width: size, height: size}} className={className}></i>;
+        const RotateCcw = ({ size = 24, className }) => <i data-lucide="rotate-ccw" style={{width: size, height: size}} className={className}></i>;
+        const X = ({ size = 24, className }) => <i data-lucide="x" style={{width: size, height: size}} className={className}></i>;
+        const Bookmark = ({ size = 24, className }) => <i data-lucide="bookmark" style={{width: size, height: size}} className={className}></i>;
+        const ChevronRight = ({ size = 24, className }) => <i data-lucide="chevron-right" style={{width: size, height: size}} className={className}></i>;
+        const ChevronLeft = ({ size = 24, className }) => <i data-lucide="chevron-left" style={{width: size, height: size}} className={className}></i>;
+        const FlaskConical = ({ size = 24, className }) => <i data-lucide="flask-conical" style={{width: size, height: size}} className={className}></i>;
+        const Palette = ({ size = 24, className }) => <i data-lucide="palette" style={{width: size, height: size}} className={className}></i>;
+        const Camera = ({ size = 24, className }) => <i data-lucide="camera" style={{width: size, height: size}} className={className}></i>;
+
+        const App = () => {
+            const defaultPalette = [
+               { id: '1', name: '1', desc: 'Глубокий черный', hex: '#000000' },
+                { id: '1B', name: '1B', desc: 'Черный натуральный (мягкий)', hex: '#1A1714' },
+                { id: '2', name: '2', desc: 'Темно-коричневый (горький шоколад)', hex: '#2B1E16' },
+                { id: '3', name: '3', desc: 'Темный шатен', hex: '#36281F' },
+                { id: '4', name: '4', desc: 'Темный шоколад', hex: '#3B2B23' },
+                { id: '6', name: '6', desc: 'Каштановый шоколад', hex: '#4E342E' },
+                { id: '8', name: '8', desc: 'Темно-русый теплый', hex: '#6D4C41' },
+                { id: '9', name: '9', desc: 'Светло-коричневый', hex: '#7B5C41' },
+                { id: '10', name: '10', desc: 'Русый (классика)', hex: '#A68B67' },
+                { id: '18N', name: '18N', desc: 'Русый нейтральный (холодноватый)', hex: '#8B7D6B' },
+                { id: '19', name: '19', desc: 'Натурально-русый', hex: '#B59A7A' },
+                { id: '22', name: '22', desc: 'Пепельный блондин', hex: '#D2B48C' },
+                { id: '24', name: '24', desc: 'Пшеничный блондин', hex: '#D6B87D' },
+                { id: '27', name: '27', desc: 'Медовый блонд', hex: '#C68E3D' },
+                { id: '30', name: '30', desc: 'Светло-каштановый', hex: '#8B4513' },
+                { id: '33', name: '33', desc: 'Темный махагон (коньячный)', hex: '#4B211C' },
+                { id: '60', name: '60', desc: 'Молочный (слоновая кость)', hex: '#FAF9F6' },
+                { id: '87', name: '87', desc: 'Желтый блонд', hex: '#F0E68C' },
+                { id: '101', name: '101', desc: 'Пепел (серебристо-серый)', hex: '#C1C5C9' },
+                { id: '135S', name: '135S', desc: 'Красно-рыжий', hex: '#913129' },
+                { id: '144', name: '144', desc: 'Горчичный / Темно-золотой', hex: '#D99100' },
+                { id: '220', name: '220', desc: 'Бежевый блонд', hex: '#E1C699' },
+                { id: '301', name: '301', desc: 'Микс светло-русый', hex: '#BFA075' },
+                { id: '302', name: '302', desc: 'Микс средне-русый', hex: '#997950' },
+                { id: '303', name: '303', desc: 'Микс темно-русый', hex: '#735438' },
+                { id: '307', name: '307', desc: 'Микс медно-золотистый', hex: '#A0522D' },
+                { id: '600', name: '600', desc: 'Ослепительно белый', hex: '#FFFFFF' },
+                { id: '600-1', name: '600-1', desc: 'Холодный белый', hex: '#F0F8FF' },
+                { id: '600-3', name: '600-3', desc: 'Теплый белый (бежевый подтон)', hex: '#F5F5DC' },
+                { id: '613', name: '613', desc: 'Светлый блонд (платина)', hex: '#F3E5AB' },
+                { id: 'KB-88', name: 'KB-88', desc: 'Золотистый блонд', hex: '#E7BC5F' },
+                { id: 'F1', name: 'F1', desc: 'Розовый (классический)', hex: '#FF6699' },
+                { id: 'F2', name: 'F2', desc: 'Красный (алый)', hex: '#D10000' },
+                { id: 'F10', name: 'F10', desc: 'Темно-синий', hex: '#000080' },
+                { id: 'F11', name: 'F11', desc: 'Баклажан (темный фиолет)', hex: '#483248' },
+                { id: 'F12', name: 'F12', desc: 'Насыщенный фиолетовый', hex: '#6A0DAD' },
+                { id: 'F13', name: 'F13', desc: 'Лавандовый', hex: '#9370DB' },
+                { id: 'F14', name: 'F14', desc: 'Ярко-синий', hex: '#0033CC' },
+                { id: 'F15', name: 'F15', desc: 'Оранжевый (яркий)', hex: '#FF8300' },
+                { id: 'F16', name: 'F16', desc: 'Нежно-голубой', hex: '#A2CFFE' },
+                { id: 'F17', name: 'F17', desc: 'Солнечно-желтый', hex: '#FFEF00' },
+                { id: 'F18', name: 'F18', desc: 'Салатовый неон', hex: '#7FFF00' },
+                { id: 'F19', name: 'F19', desc: 'Темно-зеленый', hex: '#008000' },
+                { id: 'F20', name: 'F20', desc: 'Рыже-оранжевый (кирпич)', hex: '#CC4E00' },
+                { id: 'F21', name: 'F21', desc: 'Светло-оранжевый (персик)', hex: '#FFB07C' },
+                { id: 'F24', name: 'F24', desc: 'Розовый неон (фуксия)', hex: '#FF33CC' },
+                { id: 'F25', name: 'F25', desc: 'Нежно-розовый', hex: '#FFC0CB' },
+                { id: 'F26', name: 'F26', desc: 'Коралл', hex: '#FF7F50' },
+                { id: 'F27', name: 'F27', desc: 'Бордовый (вино)', hex: '#800000' },
+                { id: 'F31', name: 'F31', desc: 'Мятный', hex: '#AAF0D1' },
+            ];
+
+            const [baseColors, setBaseColors] = useState(() => {
+                const saved = localStorage.getItem('bt_palette');
+                return saved ? JSON.parse(saved) : defaultPalette;
+            });
+
+            const [savedMixes, setSavedMixes] = useState(() => {
+                const saved = localStorage.getItem('bt_history');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            const [mixList, setMixList] = useState([]);
+            const [isAddingNew, setIsAddingNew] = useState(false);
+            const [addMode, setAddMode] = useState('camera'); 
+            const [isNamingMix, setIsNamingMix] = useState(false);
+            const [mixName, setMixName] = useState('');
+            const [newColor, setNewColor] = useState({ name: '', hex: '#6366f1', desc: '' });
+            const [deleteModeId, setDeleteModeId] = useState(null);
+            const [videoStream, setVideoStream] = useState(null);
+            const [liveHex, setLiveHex] = useState('#FFFFFF');
+            const [brightness, setBrightness] = useState(100);
+            const [hueSat, setHueSat] = useState({ h: 0, s: 100 });
+
+            const longPressTimer = useRef(null);
+            const canvasHairRef = useRef(null);
+            const canvasThreadsRef = useRef(null);
+            const scrollContainerRef = useRef(null);
+            const videoRef = useRef(null);
+            const canvasCapRef = useRef(null);
+            const wheelRef = useRef(null);
+
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+            useEffect(() => { localStorage.setItem('bt_palette', JSON.stringify(baseColors)); }, [baseColors]);
+            useEffect(() => { localStorage.setItem('bt_history', JSON.stringify(savedMixes)); }, [savedMixes]);
+
+            // Helper functions
+            const hexToRgb = (hex) => {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return { r, g, b };
+            };
+
+            const hsvToHex = (h, s, v) => {
+                v /= 100; s /= 100;
+                const f = (n, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+                const r = Math.round(f(5) * 255), g = Math.round(f(3) * 255), b = Math.round(f(1) * 255);
+                const toHex = x => x.toString(16).padStart(2, '0').toUpperCase();
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            };
+
+            const getBrightness = (hex) => {
+                const { r, g, b } = hexToRgb(hex);
+                return (r * 299 + g * 587 + b * 114) / 1000;
+            };
+
+            const getAverageColor = () => {
+                if (mixList.length === 0) return '#fafafa';
+                let r = 0, g = 0, b = 0;
+                const total = mixList.reduce((s, i) => s + i.weight, 0);
+                mixList.forEach(item => {
+                    const rgb = hexToRgb(item.hex);
+                    r += rgb.r * (item.weight / (total || 1));
+                    g += rgb.g * (item.weight / (total || 1));
+                    b += rgb.b * (item.weight / (total || 1));
+                });
+                const toHex = (c) => Math.round(c).toString(16).padStart(2, '0');
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            };
+
+            const startCamera = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment', width: 640, height: 640 } 
+                    });
+                    setVideoStream(stream);
+                } catch (err) { console.error("Camera access error:", err); }
+            };
+
+            const stopCamera = () => {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                    setVideoStream(null);
+                }
+            };
+
+            useEffect(() => { if (videoRef.current && videoStream) videoRef.current.srcObject = videoStream; }, [videoStream]);
+
+            useEffect(() => {
+                let animationId;
+                const captureLoop = () => {
+                    if (videoStream && videoRef.current && canvasCapRef.current && videoRef.current.readyState === 4) {
+                        const ctx = canvasCapRef.current.getContext('2d', { willReadFrequently: true });
+                        ctx.drawImage(videoRef.current, 0, 0, 300, 300);
+                        const p = ctx.getImageData(150, 150, 1, 1).data;
+                        const hex = "#" + [p[0], p[1], p[2]].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+                        setLiveHex(hex);
+                    }
+                    animationId = requestAnimationFrame(captureLoop);
+                };
+                if (videoStream && addMode === 'camera') animationId = requestAnimationFrame(captureLoop);
+                return () => cancelAnimationFrame(animationId);
+            }, [videoStream, addMode]);
+
+            const handleWheelClick = (e) => {
+                const rect = wheelRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                const radius = rect.width / 2;
+                const d = Math.sqrt(x*x + y*y);
+                if (d > radius) return;
+                let h = Math.atan2(y, x) * (180 / Math.PI) + 90;
+                if (h < 0) h += 360;
+                const s = Math.min(100, (d / radius) * 100);
+                setHueSat({ h, s });
+                setNewColor(prev => ({ ...prev, hex: hsvToHex(h, s, brightness) }));
+            };
+
+            useEffect(() => {
+                if (addMode === 'manual') setNewColor(prev => ({ ...prev, hex: hsvToHex(hueSat.h, hueSat.s, brightness) }));
+            }, [brightness, hueSat, addMode]);
+
+            // Simulation visualization
+            useEffect(() => {
+                const hairCanvas = canvasHairRef.current;
+                const threadsCanvas = canvasThreadsRef.current;
+                if (!hairCanvas || !threadsCanvas) return;
+
+                const ctxH = hairCanvas.getContext('2d', { alpha: false });
+                const ctxT = threadsCanvas.getContext('2d', { alpha: false });
+                const w = hairCanvas.width;
+                const h = hairCanvas.height;
+
+                if (mixList.length === 0) {
+                    const emptyColor = '#fafafa';
+                    [ctxH, ctxT].forEach(ctx => { ctx.fillStyle = emptyColor; ctx.fillRect(0, 0, w, h); });
+                    return;
+                }
+
+                const totalWeight = mixList.reduce((sum, item) => sum + item.weight, 0);
+                const sortedActive = [...mixList].sort((a, b) => getBrightness(a.hex) - getBrightness(b.hex));
+                const backgroundHex = sortedActive[0].hex;
+
+                // Hair Drawing
+                const hairCount = 1000;
+                const hairWidth = w / hairCount;
+                let colorPool = [];
+                mixList.forEach(item => {
+                    const count = Math.round((item.weight / (totalWeight || 1)) * hairCount);
+                    for (let i = 0; i < count; i++) colorPool.push(item.hex);
+                });
+                for (let i = colorPool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [colorPool[i], colorPool[j]] = [colorPool[j], colorPool[i]];
+                }
+
+                ctxH.fillStyle = backgroundHex;
+                ctxH.fillRect(0, 0, w, h);
+                colorPool.forEach((color, i) => {
+                    ctxH.strokeStyle = color;
+                    ctxH.lineWidth = 1.2;
+                    ctxH.globalAlpha = 0.8;
+                    const startX = i * hairWidth;
+                    ctxH.beginPath();
+                    ctxH.moveTo(startX, 0);
+                    ctxH.bezierCurveTo(startX + (Math.random() - 0.5) * 10, h * 0.4, startX + (Math.random() - 0.5) * 10, h * 0.7, startX + (Math.random() - 0.5) * 5, h);
+                    ctxH.stroke();
+                });
+
+                // Threads/Dreadlocks Drawing
+                ctxT.fillStyle = backgroundHex;
+                ctxT.fillRect(0, 0, w, h);
+                const baseThreadCount = 80000;
+                mixList.forEach(item => {
+                    const share = item.weight / (totalWeight || 1);
+                    const count = Math.floor(baseThreadCount * share);
+                    ctxT.strokeStyle = item.hex;
+                    ctxT.globalAlpha = 0.25 + (share * 0.35); 
+                    ctxT.lineWidth = 0.5;
+                    for (let i = 0; i < count; i++) {
+                        const x = Math.random() * w; const y = Math.random() * h;
+                        ctxT.beginPath(); ctxT.moveTo(x, y);
+                        const cp1x = x + (Math.random() - 0.5) * 40; const cp1y = y + (Math.random() - 0.5) * 40;
+                        const ex = x + (Math.random() - 0.5) * 20; const ey = y + (Math.random() - 0.5) * 20;
+                        ctxT.quadraticCurveTo(cp1x, cp1y, ex, ey); ctxT.stroke();
+                    }
+                });
+
+                // Post-processing
+                [ctxH, ctxT].forEach(ctx => {
+                    ctx.globalAlpha = 1.0;
+                    const highlight = ctx.createLinearGradient(0, 0, w, 0);
+                    highlight.addColorStop(0, 'rgba(255,255,255,0)'); highlight.addColorStop(0.5, 'rgba(255,255,255,0.1)'); highlight.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = highlight; ctx.fillRect(0, 0, w, h);
+                    const radial = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w * 0.8);
+                    radial.addColorStop(0, 'rgba(0,0,0,0)'); radial.addColorStop(1, 'rgba(0,0,0,0.15)');
+                    ctx.fillStyle = radial; ctx.fillRect(0, 0, w, h);
+                });
+            }, [mixList]);
+
+            const handleTouchStart = (id) => { longPressTimer.current = setTimeout(() => setDeleteModeId(id), 800); };
+            const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
+
+            const addToMix = (color) => {
+                if (deleteModeId) { setDeleteModeId(null); return; }
+                const existing = mixList.find(i => i.id === color.id);
+                if (existing) { updateWeight(color.id, 50); } else { setMixList([...mixList, { ...color, weight: 100 }]); }
+            };
+
+            const updateWeight = (id, delta) => {
+                setMixList(prev => prev.map(item => 
+                    item.id === id ? { ...item, weight: Math.max(0, item.weight + delta) } : item
+                ).filter(item => item.weight > 0));
+            };
+
+            const handleManualWeightChange = (id, value) => {
+                const numValue = value === '' ? 0 : parseInt(value);
+                if (!isNaN(numValue)) setMixList(prev => prev.map(item => item.id === id ? { ...item, weight: numValue } : item));
+            };
+
+            const saveMix = () => {
+                if (mixList.length === 0) return;
+                const autoName = mixList.map(item => item.name).join('+');
+                const finalName = mixName.trim() || autoName;
+                const newMix = {
+                    id: Date.now(), name: finalName, timestamp: new Date().toLocaleDateString(),
+                    totalWeight: mixList.reduce((s, i) => s + i.weight, 0), components: [...mixList], previewColor: getAverageColor()
+                };
+                setSavedMixes([newMix, ...savedMixes]);
+                setIsNamingMix(false); setMixName('');
+            };
+
+            const groupedColors = useMemo(() => {
+                const res = [];
+                for (let i = 0; i < baseColors.length; i += 10) res.push(baseColors.slice(i, i + 10));
+                return res;
+            }, [baseColors]);
+
+            return (
+                <div className="min-h-screen bg-white text-slate-900 font-sans antialiased pb-24 select-none overflow-x-hidden" onClick={() => deleteModeId && setDeleteModeId(null)}>
+                    <header className="max-w-xl mx-auto px-6 py-4 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-md z-50 border-b border-slate-50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-15 flex items-center justify-center overflow-hidden">
+                                    <svg xmlns="http://www.w3.org/2000/svg" data-name="Слой 1" viewBox="0 0 181.48 434.35" className="w-full h-full object-contain">
+                                    <defs>
+                                        <linearGradient id="a" x1="34.12" x2="181.48" y1="244.19" y2="244.19" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".06" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="b" x1="-9.45" x2="163.23" y1="340.45" y2="-4.97" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".06" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="c" x1="67.42" x2="101.35" y1="51.69" y2="200" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".12" stopColor="#966d97"/><stop offset=".72" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="d" x1="123.21" x2="25.86" y1="419.06" y2="29.67" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".12" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="e" x1="173.5" x2="123.94" y1="325.87" y2="207.8" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".06" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="f" x1="22.58" x2="65.98" y1="140.56" y2="177.96" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".12" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="g" x1="14.89" x2="84.01" y1="69.69" y2="178.31" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".12" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                        <linearGradient id="h" x1="151.39" x2="93.42" y1="341.06" y2="251.3" gradientTransform="matrix(1 0 0 -1 0 434.36)" gradientUnits="userSpaceOnUse">
+                                            <stop offset=".06" stopColor="#966d97"/><stop offset=".52" stopColor="#e5aea9"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M86.51.69c-2.37 4.74-5.02 9.37-7.06 14.25-11.96 28.53-14.44 57.81-8.13 88.21 6.8 32.72 24.18 59.41 45.33 84.23 14.17 16.63 29.14 32.66 42.32 50.04 29.16 38.44 29.86 86.94 2.84 126.84-3.9 5.78-8.37 11.16-13.32 16.07 1.67-8.11 3.53-16.18 4.96-24.33 4.29-24.53-.1-47.93-9.28-70.76-10.05-24.98-26.71-45.23-45.1-64.37-17.31-18.01-34.77-35.91-47.03-58.06-19.29-34.86-23.65-71.16-9.95-108.85 7.57-20.82 19.97-38.42 38.69-50.99C82.35 1.92 84 .99 85.62 0c.29.23.58.46.87.68h.02Z" style={{fill:'url(#a)'}}/>
+                                    <path d="M95.81 434.35c4.52-11.91 9.99-23.05 12.99-34.82 8.94-35.01 5.39-69.06-9.72-102.01-10.86-23.68-27.1-43.38-44.19-62.61-14.15-15.91-28.88-31.32-39.73-49.98-24.2-41.62-19.2-91.72 13.32-127.43 1.62-1.78 3.27-3.51 5.73-6.14-1.82 7.31-3.42 13.47-4.88 19.67-6.97 29.71-1.5 57.85 10.9 85.07 9.86 21.65 25.26 39.25 41.29 56.4 17.04 18.23 34.81 35.85 47.13 57.96 21.99 39.47 25.19 79.91 5.63 121.11-8.46 17.82-21.13 32.42-38.47 42.78" style={{fill:'url(#b)'}}/>
+                                    <path d="M90.46 298.25c6.38 13.53 11.58 26.33 13.61 40.11 1.28 8.72 1.65 17.59 2.13 26.4.12 2.1-.36 4.71-1.57 6.34-9.89 13.34-20.02 26.5-30.28 39.99-15.37-9.38-28.65-20.28-40.86-33.81 18.79-26.07 37.57-52.13 56.96-79.04h.01Z" style={{fill:'url(#c)'}}/>
+                                    <path d="M91.05 135.09C79.59 112.87 74.86 90.62 75.17 67.2c0-.99.3-2.14.88-2.92 10.16-13.75 20.39-27.46 30.84-41.48 15.95 9.12 28.95 20.04 41.33 33.32-18.86 26.05-37.71 52.08-57.17 78.97" style={{fill:'url(#d)'}}/>
+                                    <path d="M159.07 71.36c33.55 32.41 28.36 111.42-8.41 142.55l-26.65-29.9c27.2-32.67 45.07-67.96 35.06-112.65" style={{fill:'url(#e)'}}/>
+                                    <path d="M30.85 219.84c8.81 9.91 17.42 19.6 26.45 29.74-13.32 15.52-24.22 32.39-31.31 51.63-7.15 19.43-8.5 39.12-3.79 59.76-33.12-30.48-28.29-107.32 8.65-141.14Z" style={{fill:'url(#f)'}}/>
+                                    <path d="M30.39 368.4c-11.62-44.63 4.67-79.96 32.1-113.38 6.13 8.65 12.17 16.77 17.76 25.18 6.92 10.4 6.57 10.37-.84 20.47-13.62 18.58-27 37.35-40.48 56.03-2.61 3.62-5.26 7.22-8.54 11.7" style={{fill:'url(#g)'}}/>
+                                    <path d="M150.44 65.72c11.58 34.85.2 76.2-32.28 112.77-7.52-11.1-14.95-21.88-22.06-32.87-.76-1.18-.26-4 .68-5.33 13.61-19.04 27.42-37.94 41.14-56.9 4.14-5.72 8.16-11.51 12.51-17.67z" style={{fill:'url(#h)'}}/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-black tracking-tight uppercase leading-none">Braid Tone</h1>
+                                <p className="text-[9px] uppercase tracking-[0.3em] text-slate-400 font-bold mt-1">Laboratory 2026</p>
+                            </div>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); setIsAddingNew(true); startCamera(); }} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-50 border border-slate-100 text-slate-950 shadow-sm active:scale-90 transition-all">
+                            <Plus size={24} />
+                        </button>
+                    </header>
+
+                    <main className="max-w-xl mx-auto px-6 space-y-8 mt-6">
+                        {/* Palette Section */}
+                        <section className="relative" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-4 px-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Палитра (зажмите для удаления)</span>
+                                <div className="flex gap-2">
+                                    <button onClick={() => scrollContainerRef.current?.scrollBy({left:-300, behavior:'smooth'})} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400"><ChevronLeft size={16}/></button>
+                                    <button onClick={() => scrollContainerRef.current?.scrollBy({left:300, behavior:'smooth'})} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400"><ChevronRight size={16}/></button>
+                                </div>
+                            </div>
+                            <div ref={scrollContainerRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide scroll-smooth">
+                                {groupedColors.map((group, idx) => (
+                                    <div key={idx} className="min-w-full snap-start grid grid-cols-5 grid-rows-2 gap-3 pb-2 pr-1">
+                                        {group.map(color => (
+                                            <div key={color.id} className="relative flex flex-col items-center gap-1" 
+                                                onMouseDown={() => handleTouchStart(color.id)} onMouseUp={handleTouchEnd} 
+                                                onTouchStart={() => handleTouchStart(color.id)} onTouchEnd={handleTouchEnd}
+                                            >
+                                                <button onClick={(e) => { e.stopPropagation(); addToMix(color); }} className={`w-full aspect-square rounded-xl border border-slate-100 shadow-sm transition-all active:scale-90 ${deleteModeId === color.id ? 'scale-90 opacity-50 ring-2 ring-red-500' : ''}`} style={{ backgroundColor: color.hex }} />
+                                                <span className="text-[9px] font-black text-slate-900 leading-none">{color.name}</span>
+                                                {deleteModeId === color.id && (
+                                                    <button onClick={(e) => { e.stopPropagation(); setBaseColors(prev => prev.filter(c => c.id !== color.id)); setDeleteModeId(null); }} className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-10"><X size={14} strokeWidth={4} /></button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Visualization Section */}
+                        <section className="grid grid-cols-2 gap-4">
+                            <div className="space-y-3">
+                                <div className="aspect-[3/4] rounded-[2.5rem] bg-slate-50 border border-slate-100 overflow-hidden shadow-inner ring-4 ring-slate-50/50">
+                                    <canvas ref={canvasHairRef} width={400} height={533} className="w-full h-full object-cover" />
+                                </div>
+                                <p className="text-[9px] text-center font-black uppercase tracking-widest text-slate-300">В косе</p>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="aspect-[3/4] rounded-[2.5rem] bg-slate-50 border border-slate-100 overflow-hidden shadow-inner ring-4 ring-slate-50/50">
+                                    <canvas ref={canvasThreadsRef} width={400} height={533} className="w-full h-full object-cover" />
+                                </div>
+                                <p className="text-[9px] text-center font-black uppercase tracking-widest text-slate-300">В дреде</p>
+                            </div>
+                        </section>
+
+                        {/* Resulting Color Card */}
+                        <div className="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                             <div className="flex justify-between items-center px-2 mb-3">
+                                    <div className="flex items-center gap-2">
+                                         <FlaskConical size={14} className="text-slate-950" />
+                                         <span className="text-[10px] font-black uppercase tracking-widest">Результат</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">{getAverageColor()}</span>
+                             </div>
+                             <div className="h-14 w-full rounded-2xl shadow-inner border border-slate-50 transition-colors duration-500" style={{ backgroundColor: getAverageColor() }} />
+                        </div>
+
+                        {/* Mix Formula Section */}
+                        <section className="space-y-4">
+                            <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-950 border-b border-slate-50 pb-2 flex justify-between">
+                                <span>Формула замеса</span>
+                                <span className="text-slate-300">Всего: {mixList.reduce((s,i) => s + i.weight, 0)}г</span>
+                            </h2>
+                            <div className="space-y-3">
+                                {mixList.length === 0 && (
+                                    <div className="py-12 text-center text-[10px] text-slate-200 font-black uppercase tracking-widest border-2 border-dashed border-slate-50 rounded-[2.5rem]">Добавьте цвета из палитры</div>
+                                )}
+                                {mixList.map((item) => {
+                                    const total = mixList.reduce((s,i) => s + i.weight, 0);
+                                    const percent = total > 0 ? ((item.weight / total) * 100).toFixed(0) : 0;
+                                    return (
+                                        <div key={item.id} className="bg-slate-50/50 rounded-3xl p-4 border border-slate-50 flex items-center gap-4">
+                                            <div className="w-16 h-16 rounded-2xl border border-white shadow-sm flex-shrink-0" style={{ backgroundColor: item.hex }} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-center mb-1 pr-2">
+                                                    <p className="text-xs font-black text-slate-950 uppercase">{item.name}</p>
+                                                    <span className="text-[10px] font-bold text-slate-300 uppercase">{percent}%</span>
+                                                </div>
+                                                <div className="h-1 bg-white rounded-full overflow-hidden border border-slate-100 mb-2">
+                                                    <div className="h-full bg-slate-950" style={{ width: `${percent}%` }} />
+                                                </div>
+                                                <p className="text-[9px] font-black text-slate-950 uppercase leading-tight tracking-tight pr-1 line-clamp-2">
+                                                    {item.desc}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center bg-white rounded-2xl border border-slate-100 p-1">
+                                                <button onClick={() => updateWeight(item.id, -5)} className="w-8 h-8 flex items-center justify-center text-slate-300 active:text-slate-950"><Minus size={14}/></button>
+                                                <input type="number" className="w-12 text-center text-xs font-black bg-transparent outline-none p-0" value={item.weight || ''} onFocus={(e) => e.target.select()} onChange={(e) => handleManualWeightChange(item.id, e.target.value)} />
+                                                <button onClick={() => updateWeight(item.id, 5)} className="w-8 h-8 flex items-center justify-center text-slate-300 active:text-slate-950"><Plus size={14}/></button>
+                                            </div>
+                                            <button onClick={() => setMixList(mixList.filter(m => m.id !== item.id))} className="text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <div className="flex gap-4">
+                            <button disabled={mixList.length === 0} onClick={() => setIsNamingMix(true)} className="flex-1 h-20 bg-slate-950 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 disabled:opacity-20 flex items-center justify-center gap-3"><Save size={20} /> Сохранить</button>
+                            <button onClick={() => setMixList([])} className="w-20 h-20 flex items-center justify-center rounded-[2rem] bg-slate-100 text-slate-300 animate-reset transition-all"><RotateCcw size={24} /></button>
+                        </div>
+
+                        {/* History Section */}
+                        {savedMixes.length > 0 && (
+                            <section className="pt-8 border-t border-slate-50 space-y-6 pb-10">
+                                <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center gap-2"><Bookmark size={14}/> История замесов</h2>
+                                <div className="grid gap-3">
+                                    {savedMixes.map(mix => (
+                                        <div key={mix.id} onClick={() => setMixList(mix.components)} className="p-5 rounded-[2.5rem] bg-white border border-slate-100 flex items-center gap-4 cursor-pointer hover:border-slate-300 transition-all group shadow-sm">
+                                            <div className="w-12 h-12 rounded-full border border-slate-100 shadow-sm" style={{ backgroundColor: mix.previewColor }} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-black uppercase truncate text-slate-900">{mix.name}</p>
+                                                <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{mix.totalWeight}г • {mix.timestamp}</p>
+                                            </div>
+                                            <button onClick={(e) => { e.stopPropagation(); setSavedMixes(savedMixes.filter(m => m.id !== mix.id)); }} className="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18} /></button>
+                                            <ChevronRight size={16} className="text-slate-200" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+                    </main>
+
+                    {/* Modals and Overlays */}
+                    {isNamingMix && (
+                        <div className="fixed inset-0 bg-slate-950/20 backdrop-blur-xl z-[100] flex items-center justify-center p-6" onClick={() => setIsNamingMix(false)}>
+                            <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-10 space-y-6 shadow-2xl border border-slate-50" onClick={e => e.stopPropagation()}>
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-slate-50 text-slate-950"><Save size={32} /></div>
+                                    <h3 className="text-center text-[10px] font-black uppercase tracking-widest text-slate-400">Назовите формулу</h3>
+                                </div>
+                                <input autoFocus className="w-full border-b-2 border-slate-100 py-3 text-center text-sm font-black outline-none focus:border-slate-950 uppercase" placeholder={mixList.map(i => i.name).join('+')} value={mixName} onChange={e => setMixName(e.target.value)} />
+                                <div className="flex flex-col gap-2 pt-4">
+                                     <button onClick={saveMix} className="w-full py-5 bg-slate-950 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-lg">Подтвердить</button>
+                                     <button onClick={() => setIsNamingMix(false)} className="w-full py-4 text-slate-400 text-[10px] font-black uppercase tracking-widest">Отмена</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {isAddingNew && (
+                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[100] flex items-center justify-center p-6" onClick={() => { stopCamera(); setIsAddingNew(false); }}>
+                            <div className="bg-white w-full max-w-sm rounded-[3rem] p-6 space-y-6 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl">
+                                    <button onClick={() => { setAddMode('camera'); startCamera(); }} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${addMode === 'camera' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                                        <Camera size={14}/> Камера
+                                    </button>
+                                    <button onClick={() => { setAddMode('manual'); stopCamera(); }} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${addMode === 'manual' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                                        <Palette size={14}/> Палитра
+                                    </button>
+                                </div>
+                                <div className="flex justify-center py-2">
+                                    <div className="relative w-64 h-64 rounded-full bg-slate-50 overflow-hidden shadow-inner ring-8 ring-slate-50">
+                                        {addMode === 'camera' ? (
+                                            <>
+                                                {!videoStream ? (
+                                                    <button onClick={startCamera} className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 gap-3">
+                                                        <Camera size={44} />
+                                                        <span className="text-[9px] font-black uppercase">Включить камеру</span>
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                                                        <canvas ref={canvasCapRef} width="300" height="300" className="hidden" />
+                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                            <div className="relative w-10 h-10 border-2 border-white/50 rounded-full flex items-center justify-center">
+                                                                <div className="w-1 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" />
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div ref={wheelRef} onClick={handleWheelClick} className="w-full h-full cursor-crosshair relative" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)`, borderRadius: '50%' }}>
+                                                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle, white, transparent)' }} />
+                                                <div className="absolute w-6 h-6 border-4 border-white rounded-full shadow-lg -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: `${50 + (hueSat.s/2) * Math.cos((hueSat.h - 90) * Math.PI / 180)}%`, top: `${50 + (hueSat.s/2) * Math.sin((hueSat.h - 90) * Math.PI / 180)}%`, backgroundColor: hsvToHex(hueSat.h, hueSat.s, 100) }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                {addMode === 'manual' && (
+                                    <div className="px-4 space-y-2">
+                                        <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase"><span>Яркость</span><span>{brightness}%</span></div>
+                                        <input type="range" min="0" max="100" value={brightness} onChange={(e) => setBrightness(parseInt(e.target.value))} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900" style={{ background: `linear-gradient(to right, #000, ${hsvToHex(hueSat.h, hueSat.s, 100)})` }} />
+                                    </div>
+                                )}
+                                <div className="flex justify-center">
+                                    <button onClick={() => setNewColor(prev => ({ ...prev, hex: addMode === 'camera' ? liveHex : prev.hex }))} className="bg-slate-950 text-white px-10 py-3 rounded-full shadow-xl flex items-center gap-3 active:scale-95 transition-all">
+                                        <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: addMode === 'camera' ? liveHex : newColor.hex }} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Зафиксировать</span>
+                                    </button>
+                                </div>
+                                <div className="space-y-4 pt-2 border-t border-slate-50 relative">
+                                    <div className="flex gap-4 items-end">
+                                        <div className="flex-1 space-y-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-black text-slate-300 uppercase ml-1">Код материала *</label>
+                                                <input className="w-full border-b border-slate-100 py-2 text-sm font-black outline-none focus:border-slate-900 uppercase" placeholder="10.1 / F12" value={newColor.name} onChange={e => setNewColor({...newColor, name: e.target.value})} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-black text-slate-300 uppercase ml-1">Описание</label>
+                                                <input className="w-full border-b border-slate-100 py-2 text-xs font-bold text-slate-400 outline-none focus:border-slate-400 uppercase" placeholder="Оттенок" value={newColor.desc} onChange={e => setNewColor({...newColor, desc: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="w-16 h-16 rounded-2xl shadow-inner border border-slate-100 flex-shrink-0 mb-1" style={{ backgroundColor: newColor.hex }} />
+                                    </div>
+                                    <button disabled={!newColor.name} onClick={() => { setBaseColors([{...newColor, id: Date.now().toString()}, ...baseColors]); stopCamera(); setIsAddingNew(false); setNewColor({name: '', hex: '#6366f1', desc: ''}); }} className="w-full bg-slate-950 text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg active:scale-[0.98] transition-all disabled:opacity-20">Добавить в палитру</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
