@@ -3,19 +3,25 @@
   "name": "Braid Tone Laboratory",
   "icons": [
     {
-      "src": "icon-180.png",
+      "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "180x180"
+      "sizes": "192x192"
     },
     {
-      "src": "icon-152.png",
+      "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "152x152"
+      "sizes": "512x512"
+    },
+    {
+      "src": "icon-192-maskable.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     }
   ],
-  "start_url": "/braidtone/index.html",
+  "start_url": "./index.html",
   "background_color": "#ffffff",
   "display": "standalone",
-  "scope": "/braidtone/",
+  "scope": "./",
   "theme_color": "#ffffff"
 }
