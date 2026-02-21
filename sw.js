@@ -1,4 +1,4 @@
-const CACHE_NAME = 'braid-tone-v3'; // Обновили версию для принудительного обновления у пользователей
+const CACHE_NAME = 'braid-tone-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,23 +8,28 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap',
-  './icon-180.png',
-  './icon-152.png',
-  './icon-16.png',
-  './icon-192.png',
-  './icon-192-maskable.png',
-  './icon-512.png'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'
 ];
 
-// Установка: кэшируем ресурсы по одному, чтобы битая ссылка не ломала всё приложение
+// Добавляем иконки программно, чтобы не загромождать список
+const ICONS = [
+  './icon-180.png', './icon-152.png', './icon-16.png', 
+  './icon-192.png', './icon-192-maskable.png', './icon-512.png'
+];
+
+const ALL_ASSETS = [...ASSETS_TO_CACHE, ...ICONS];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Кэширование ресурсов...');
+      console.log('Кэширование всех ресурсов...');
+      // Используем Promise.allSettled чтобы 404 по одной иконке не ломал всё приложение
       return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => 
-          cache.add(url).catch(err => console.warn(`Не удалось загрузить в кэш: ${url}`, err))
+        ALL_ASSETS.map(url => 
+          fetch(url).then(response => {
+            if (response.ok) return cache.put(url, response);
+            throw new Error(`Failed to fetch ${url}`);
+          }).catch(err => console.warn('Ошибка кэширования ресурса:', url))
         )
       );
     })
@@ -32,45 +37,37 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Активация: очистка старых версий кэша
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Удаление старого кэша:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) => Promise.all(
+      keys.map(key => key !== CACHE_NAME ? caches.delete(key) : null)
+    ))
   );
   return self.clients.claim();
 });
 
-// Стратегия: Сначала кэш, если нет — сеть
 self.addEventListener('fetch', (event) => {
-  // Пропускаем запросы к расширениям браузера и не-GET запросы
-  if (!event.request.url.startsWith('http') || event.request.method !== 'GET') return;
+  // Игнорируем не-GET запросы и расширения
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+    caches.match(event.request).then((cached) => {
+      // 1. Возвращаем из кэша, если есть
+      if (cached) return cached;
 
+      // 2. Если нет в кэше, идем в сеть
       return fetch(event.request).then((response) => {
-        // Кэшируем новые успешные запросы (например, шрифты или картинки, не вошедшие в список)
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+        // Кэшируем на лету только валидные ответы
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         }
         return response;
       }).catch(() => {
-        // Ошибка сети — здесь можно возвращать заглушку для картинок
+        // 3. Если сети нет и это запрос навигации (страница), возвращаем корень
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html') || caches.match('./');
+        }
       });
     })
   );
