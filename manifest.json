@@ -13,9 +13,9 @@
       "sizes": "152x152"
     }
   ],
-  "start_url": "/Braid-Tone/index.html",
+  "start_url": "/braidtone/index.html",
   "background_color": "#ffffff",
   "display": "standalone",
-  "scope": "/Braid-Tone/",
+  "scope": "/braidtone/",
   "theme_color": "#ffffff"
 }
